@@ -1,18 +1,20 @@
-# Práctica 1 — Diseño del soporte y los circuitos integrados
+# Práctica 1 — Soporte, circuitos y lectura del tablero
 
 ## 1. Objetivo
 
-Representar sobre una cuadrícula los circuitos integrados y sus pines, así como definir las conexiones que deberán trazarse posteriormente. La geometría del soporte y la lista de conexiones se mantienen separadas, siguiendo el planteamiento de los cuadernos de clase.
+Representar una placa cuadriculada que contiene cuatro circuitos integrados, identificar sus pines y definir por separado las conexiones que se solicitará realizar. El programa genera un fichero de definición y posteriormente lo lee para obtener dos estructuras: `mapa` y `conexiones`.
+
+La representación y lectura siguen el planteamiento de construcción del tablero de los cuadernos de la asignatura. El trazado de rutas mediante A* todavía no está implementado.
 
 ## 2. Dimensiones y distribución
 
-- **Soporte (placa):** 30 × 30 casillas.
-- **Circuitos integrados:** cuatro, identificados como A, B, C y D.
-- **Dimensiones de cada circuito:** 6 × 6 casillas.
-- **Pines:** cuatro en cada lado; 16 por circuito, sin ocupar las esquinas.
-- **Relación de tamaños:** se interpreta que cada lado del soporte mide cinco veces el lado de un circuito (30 = 5 × 6).
+- **Soporte o placa:** 30 × 30 casillas.
+- **Circuitos integrados:** A, B, C y D.
+- **Tamaño de cada circuito:** 6 × 6 casillas.
+- **Pines:** cuatro por lado y dieciséis por circuito, con esquinas libres de pines.
+- **Criterio dimensional:** se interpreta que cada dimensión del soporte debe multiplicar por cinco la dimensión correspondiente de un circuito: 6 × 5 = 30.
 
-Las posiciones se expresan mediante pares `(fila, columna)`, comenzando por `(0, 0)` en la esquina superior izquierda.
+Las coordenadas tienen el formato `(fila, columna)` y comienzan en cero.
 
 | Circuito | Fila inicial | Columna inicial | Dimensiones |
 | --- | ---: | ---: | --- |
@@ -21,64 +23,90 @@ Las posiciones se expresan mediante pares `(fila, columna)`, comenzando por `(0,
 | C | 21 | 3 | 6 × 6 |
 | D | 21 | 21 | 6 × 6 |
 
-## 3. Representación del tablero
+Los terminales de alimentación se encuentran en `S1 = (0, 14)` y `S2 = (29, 14)`.
 
-Se utiliza una **lista de listas** de Python, donde cada elemento representa una casilla de la placa. En el fichero de texto, cada casilla se codifica mediante **dos caracteres**.
+## 3. Codificación de las casillas
 
-| Código | Significado |
-| --- | --- |
-| `00` | Casilla libre |
-| `XX` | Casilla ocupada o no transitable (interior y esquinas de los circuitos) |
-| `A1`, `B5`, etc. | Pin de un circuito integrado |
-| `S1`, `S2` | Terminales de alimentación |
+En el fichero, cada casilla ocupa exactamente dos caracteres. En memoria, la lectura convierte las casillas libres y bloqueadas a códigos simplificados.
 
-Los terminales de alimentación se sitúan en `S1 = (0, 14)` y `S2 = (29, 14)`.
+| Fichero | En `mapa` | Significado |
+| --- | --- | --- |
+| `00` | `0` | Casilla libre |
+| `XX` | `X` | Casilla no transitable |
+| `A1`, `B5`, `Cg`, etc. | Igual | Pines de los circuitos |
+| `S1`, `S2` | Igual | Terminales de alimentación |
 
-## 4. Identificación de los pines
+Los 16 pines de cada circuito se denominan usando la letra del circuito y un símbolo de `123456789abcdefg`:
 
-Para mantener una anchura de dos caracteres por casilla, los 16 pines se identifican mediante la letra del circuito y uno de los símbolos `123456789abcdefg`.
+- Superior: `1`, `2`, `3`, `4`.
+- Derecho: `5`, `6`, `7`, `8`.
+- Inferior: `9`, `a`, `b`, `c`.
+- Izquierdo: `d`, `e`, `f`, `g`.
 
-La distribución de identificadores es:
+El interior y las esquinas de cada circuito se representan como `XX` en el fichero original.
 
-- **Lado superior:** `1`, `2`, `3`, `4`.
-- **Lado derecho:** `5`, `6`, `7`, `8`.
-- **Lado inferior:** `9`, `a`, `b`, `c`.
-- **Lado izquierdo:** `d`, `e`, `f`, `g`.
+## 4. Fichero de definición
 
-Por ejemplo, `Aa` es un pin del circuito A y `Dg` es un pin del circuito D.
+El archivo `datos/DefinicionConexionesCircuito.txt` contiene una primera sección de 30 líneas (matriz del soporte). Después aparece el delimitador `CONEXIONES:` y, a continuación, una conexión por línea, escrita como `ORIGEN-DESTINO`.
 
-## 5. Definición de las conexiones
+Actualmente existen **16 conexiones provisionales**, entre los circuitos A–B, C–D, A–C y B–D. No están conectados todos los pines ni se han incluido todavía las conexiones a la alimentación. Por tanto, esta lista aún no constituye la definición definitiva del problema.
 
-El fichero `datos/DefinicionConexionesCircuito.txt` contiene dos partes:
+## 5. Generación del tablero
 
-1. La matriz que describe la placa y los circuitos.
-2. La lista de parejas de pines, después de la línea `CONEXIONES:`.
+`generar_tablero.py` crea la matriz de 30 × 30 con `00`, ocupa las casillas de los circuitos con `XX`, coloca los pines, incorpora `S1` y `S2`, define las conexiones iniciales y escribe el fichero de texto.
 
-Actualmente se generan **16 conexiones iniciales**: cuatro entre A y B, cuatro entre C y D, cuatro entre A y C, y cuatro entre B y D.
-
-Estas conexiones son provisionales: **no cubren todos los pines ni incluyen aún los terminales de alimentación**. La definición deberá revisarse para cumplir el enunciado completo.
-
-## 6. Generación del soporte
-
-El archivo `generar_tablero.py`:
-
-1. Crea una matriz de 30 × 30 casillas libres (`00`).
-2. Sitúa los cuatro circuitos, marcando su interior como `XX`.
-3. Identifica cuatro pines por cada lado de cada circuito.
-4. Añade los terminales de alimentación.
-5. Define la lista inicial de conexiones.
-6. Guarda la matriz y las conexiones en `datos/DefinicionConexionesCircuito.txt`.
-
-El soporte puede generarse desde la raíz del proyecto con:
+Desde la raíz del proyecto:
 
 ```bash
 python generar_tablero.py
 ```
 
-## 7. Estado actual del diseño y limitaciones
+## 6. Lectura y representación en Python
 
-La generación del soporte y de las 16 conexiones iniciales está implementada. La lectura independiente del fichero, el cálculo de rutas con A* y la comprobación de que todas las conexiones pueden trazarse sin cruces **no forman parte todavía del funcionamiento implementado**.
+El módulo `tablero.py` contiene cuatro funciones. Se utilizan los nombres en *snake_case* adoptados en nuestro proyecto, aunque algunos ejemplos del profesor están escritos en *camelCase*.
 
-La búsqueda de la ruta mínima entre dos pines no garantiza por sí sola una solución global que conecte todos los pines sin cruces. Esta restricción deberá abordarse y comprobarse al desarrollar el trazado de las conexiones.
+### `get_codigo_tablero(caracteres)`
 
-Este documento se actualizará cuando cambien la geometría, los identificadores, las conexiones o las reglas de representación del soporte.
+Interpreta el código de una casilla: devuelve `"0"` para `"00"`, `"X"` para `"XX"` y conserva los identificadores de pines y terminales. No comprueba por sí sola si un identificador es válido.
+
+### `cargar_tablero(nombre_fichero)`
+
+Abre el fichero, recorre sus líneas y separa las dos secciones utilizando la marca `CONEXIONES:`. Mientras lee el tablero, avanza de dos en dos caracteres para convertir cada línea en una lista de casillas. En la sección de conexiones, separa cada línea por `-` y guarda una tupla `(origen, destino)`.
+
+Devuelve `mapa, conexiones`, donde:
+
+- `mapa` es una lista de 30 filas; cada fila contiene 30 casillas.
+- `conexiones` es una lista de 16 tuplas con nombres de pines.
+
+Esta función presupone el formato del fichero generado; todavía no incorpora una validación exhaustiva de archivos mal formados.
+
+### `buscar_pin(mapa, pin)`
+
+Recorre la matriz mediante dos bucles `for`. Si encuentra el identificador solicitado devuelve una tupla `(fila, columna)`; si no existe, devuelve `None`.
+
+Por ejemplo, según el diseño del generador, `buscar_pin(mapa, "A1")` debe devolver `(3, 4)`.
+
+### `mostrar_matriz(mapa)`
+
+Recorre filas y casillas e imprime cada código alineado en la consola. Esta función permite inspeccionar visualmente la disposición de los circuitos y sus pines, pero no representa todavía las pistas calculadas por A*.
+
+## 7. Ejecución en PyCharm
+
+Con la raíz del proyecto como directorio de trabajo:
+
+```bash
+python generar_tablero.py
+python main.py
+```
+
+`main.py` utiliza las funciones del módulo `tablero.py` para cargar el fichero, consultar posiciones y mostrar la matriz.
+
+**Comprobación comunicada durante el desarrollo:** se han obtenido correctamente 30 filas, 30 columnas y 16 conexiones; también se resolvió una inconsistencia entre `getCodigoTablero` y `get_codigo_tablero` y se consiguió mostrar la matriz. Las comprobaciones automatizadas de todos los pines se incorporarán por separado al informe.
+
+## 8. Estado actual y limitaciones
+
+Están implementadas la generación del soporte, la lectura del fichero, la búsqueda de pines y la visualización textual. Queda pendiente implementar A*, reservar casillas de rutas, completar la lista definitiva de conexiones y verificar los requisitos de ausencia de cruces y longitud mínima de las pistas.
+
+La posible zona reservada para disipación térmica se estudiará tras obtener rutas, pero, si se incorpora, deberá añadirse al tablero de entrada y volver a ejecutarse la búsqueda antes de validar la solución final.
+
+Este documento se actualizará cuando evolucione el funcionamiento del programa; no incluye información del historial de Git.
