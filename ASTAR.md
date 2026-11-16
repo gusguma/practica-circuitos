@@ -1,144 +1,126 @@
-# Práctica 1 — Algoritmo A* para interconexión de circuitos
+# Práctica 1 — Búsqueda A* e interconexión de circuitos
 
-## 1. Objetivo
+## 1. Objetivo y relación con los cuadernos
 
-El algoritmo A* permite encontrar un camino entre dos pines de la placa cuadriculada sin atravesar circuitos, otros pines o casillas prohibidas. Además, el módulo `conexiones.py` aplica A* sucesivamente a las parejas de pines y reserva las casillas interiores de cada ruta. **A* resuelve una conexión individual; la interconexión múltiple se realiza con una estrategia secuencial propia**, cuyo resultado depende del orden de las parejas.
+Resolver automáticamente las rutas entre parejas de pines **previamente definidas**, utilizando A* para cada pareja y evitando que las pistas atraviesen circuitos, zonas bloqueadas u otras conexiones.
 
-La implementación parte del planteamiento de los cuadernos **Clase 5: `AStar-2Oct2026.ipynb`** y **Clase 7: `InterconexionCircuitos-Clase7-VEstudiantes.ipynb`**. En la Clase 5 se explica A* con clases `Nodo` y `Abiertos` y una función heurística Manhattan sobre una cuadrícula; para esta práctica se ha seguido la plantilla de la Clase 7, que propone `crearNodo`, `calcularHeuristica`, `reconstruirCamino` y `find_path`. Se han adaptado los nombres al estilo `snake_case` utilizado en el proyecto y la matriz se representa como **lista de listas**, como en la construcción del tablero.
+La base del algoritmo procede de los materiales de la asignatura:
 
-## 2. Modelo del problema
+- **Clase 5, `AStar-2Oct2026.ipynb`:** estados, nodos, abiertos y cerrados, función de evaluación y distancia Manhattan.
+- **Clase 7, `InterconexionCircuitos-Clase7-VEstudiantes.ipynb`:** planteamiento del problema de circuitos, diccionarios para los nodos, `heapq` y funciones auxiliares de A*.
 
-- **Estado:** posición `(fila, columna)` de una casilla.
-- **Estado inicial:** coordenadas del pin de origen obtenidas con `buscar_pin(mapa, identificador)`.
-- **Meta:** coordenadas del pin de destino.
-- **Operadores:** desplazarse una casilla arriba, abajo, izquierda o derecha.
-- **Coste de cada movimiento:** 1.
-- **Casillas transitables:** `"0"` y los dos extremos de la conexión actual. Las posiciones `"X"` y todos los demás pines no son transitables.
-- **Salida:** una lista de coordenadas desde origen hasta destino; `[]` si no se encuentra ruta o falta alguno de los extremos.
+El proyecto utiliza nombres en `snake_case` y listas de listas para el tablero. `conexiones.py`, que coordina varias ejecuciones de A*, es una **ampliación propia** para gestionar el trazado múltiple; no sustituye a A* por otro algoritmo.
 
-La longitud de una ruta, expresada en movimientos, se obtiene mediante `len(camino) - 1` **solo si el camino no está vacío**. Una ruta de 14 casillas contiene 13 desplazamientos.
+## 2. Modelo de búsqueda
 
-## 3. Función heurística
-
-La distancia Manhattan calcula una cota inferior de los movimientos pendientes:
-
-`h(n) = abs(fila_actual - fila_destino) + abs(columna_actual - columna_destino)`
-
-La evaluación del nodo se obtiene como `f(n) = g(n) + h(n)`, donde `g(n)` es el coste acumulado. Esta heurística no sobreestima el coste real cuando los movimientos permitidos son ortogonales y cada uno cuesta 1. Por ello A* puede obtener una ruta mínima para **cada búsqueda individual**, aunque la presencia de obstáculos obligue a rodeos.
-
-Ejemplos verificados en PyCharm:
-
-| Conexión | Origen | Destino | Manhattan | Ruta A* |
-| --- | --- | --- | ---: | ---: |
-| A1 → B1 | `(3, 4)` | `(3, 22)` | 18 | 20 movimientos |
-| A5 → Bd | `(4, 8)` | `(4, 21)` | 13 | 13 movimientos |
-
-La primera ruta sube a la fila 2 para evitar los pines que impiden avanzar directamente por la fila 3 y después vuelve a bajar al destino. La segunda atraviesa directamente las casillas libres de la fila 4.
-
-## 4. Funciones implementadas
-
-### `crear_nodo(posicion, g=float('inf'), h=0.0, padre=None)`
-
-Devuelve un diccionario con las claves `posicion`, `padre`, `g`, `h` y `f`. Para el nodo inicial se proporciona expresamente `g=0`. El valor infinito por defecto indica que todavía no se conoce un coste de llegada.
-
-### `calcular_heuristica(posicion_actual, posicion_destino)`
-
-Calcula la distancia Manhattan, explicada en la Clase 5 y aplicable a la función auxiliar propuesta en la Clase 7.
-
-### `reconstruir_camino(nodo_meta)`
-
-Sigue los enlaces `padre` hasta el nodo inicial, guarda las posiciones y utiliza `reverse()` para devolverlas desde el origen al destino.
-
-### `es_valida(mapa, posicion, origen, destino)`
-
-Comprueba que la posición está dentro de los límites; permite el origen y el destino y, para los demás puntos, exige que la casilla contenga `"0"`. No permite atravesar pines ajenos ni zonas `"X"`.
-
-### `sucesores(mapa, posicion, origen, destino)`
-
-Calcula las posiciones alcanzables mediante los desplazamientos `(1,0)`, `(-1,0)`, `(0,1)` y `(0,-1)`, descartando los movimientos no válidos.
-
-### `find_path(mapa, origen, destino)`
-
-Realiza la búsqueda con `heapq` como cola de prioridad de abiertos; usa un conjunto `cerrados` y un diccionario `mejores_costes`. Descarta entradas antiguas y reconstruye el camino al encontrar la meta. El contador auxiliar de la cola desempata prioridades sin comparar diccionarios. Si no existe camino devuelve `[]`.
-
-## 5. Secuencia general de A*
-
-1. Comprobar si el origen o el destino son `None`; en ese caso devolver `[]`.
-2. Crear el nodo inicial con `g=0` y `h` igual a la distancia Manhattan a la meta.
-3. Introducir el nodo en la cola de abiertos y registrar el coste conocido de su posición.
-4. Extraer de abiertos el nodo con menor `f` y descartar entradas obsoletas o ya cerradas.
-5. Si su posición coincide con el destino, reconstruir y devolver la ruta.
-6. En otro caso, añadir la posición a cerrados, obtener sus sucesores y calcular `nuevo_g = g_actual + 1`.
-7. Incorporar un sucesor a abiertos únicamente si no tenía coste previo o se ha encontrado un coste menor.
-8. Repetir mientras haya abiertos; si se agotan, devolver `[]`.
-
-## 6. Pruebas observadas
-
-Las siguientes salidas han sido aportadas por el estudiante tras ejecutar `main.py` en PyCharm:
-
-| Comprobación | Resultado comunicado |
+| Concepto | Representación |
 | --- | --- |
-| Nodo inicial `(3,4)`, `g=0`, `h=18` | `f=18` |
-| Reconstrucción de tres nodos enlazados | `[(3,4), (3,5), (3,6)]` |
-| Sucesores de A1 | `[(2,4)]` |
-| Sucesores de `(0,0)` | `[(1,0), (0,1)]` |
-| Camino A1–B1 | 20 movimientos |
-| Camino A5–Bd | 13 movimientos |
-| Casillas interiores del último camino evaluado | Todas `"0"` |
-| Adyacencia del último camino evaluado | `True` |
-| Pin `Z9` inexistente | `[]` |
-| Tablero artificial bloqueado | `[]` |
+| Estado | `(fila, columna)` |
+| Estado inicial | Coordenadas del pin de origen |
+| Meta | Coordenadas del pin de destino |
+| Acciones | Arriba, abajo, derecha e izquierda |
+| Coste por acción | 1 movimiento |
+| Casillas transitables | `"0"` y los dos extremos de la conexión actual |
+| Casillas no transitables | `"X"`, pines ajenos y pistas previamente ocupadas |
+| Solución individual | Lista de coordenadas origen → destino |
+| Ausencia de ruta | Lista vacía `[]` |
 
-La salida contiene dos impresiones de `Camino sin obstaculos: True`; se trata de una verificación duplicada. **Las validaciones automáticas con la variable `camino` se aplicaron a la última ruta asignada (`A5–Bd`)**, por lo que no deben contarse como una validación automática independiente de `A1–B1`.
+La longitud de un camino encontrado se obtiene como `len(camino) - 1`, pues el número de desplazamientos es uno menos que el número de posiciones recorridas.
 
-El informe de pruebas acumulativo se mantiene en `documentacion/Informe_pruebas_Practica1.docx`; se incorporarán capturas y nuevas pruebas conforme avance el proyecto.
+## 3. Heurística Manhattan
 
-## 7. Interconexión múltiple con `conexiones.py`
+Con movimientos ortogonales de coste unitario:
 
-Para conectar varias parejas de pines se utiliza `conectar_pines(mapa, conexiones)`; esta función **no forma parte de la plantilla de los cuadernos**, sino que organiza llamadas sucesivas al A* explicado en clase.
+```text
+h(n) = abs(fila_actual - fila_destino) + abs(columna_actual - columna_destino)
+f(n) = g(n) + h(n)
+```
 
-1. Se crea `mapa_trazado` copiando cada fila del mapa original (`fila[:]`). De este modo el dato de entrada no se altera.
-2. Se recorren, en el orden del fichero, las tuplas `(pin_origen, pin_destino)`.
-3. Se localizan las coordenadas de los extremos mediante `buscar_pin()`.
-4. Se llama a `find_path()` para calcular una ruta válida en el mapa actualizado.
-5. Si existe ruta, se guarda y se marcan con `"X"` sus posiciones interiores (`camino[1:-1]`), reservándolas para las siguientes búsquedas. Los pines extremos se conservan.
-6. Si no hay ruta, se registra la conexión como pendiente.
+`g(n)` es el número de movimientos realizados desde el origen y `h(n)` estima los restantes sin considerar obstáculos. Manhattan es admisible y consistente en esta cuadrícula; A* encuentra una ruta de menor coste **para cada conexión individual con los obstáculos ya fijados**.
 
-La función devuelve `mapa_trazado`, `rutas` y `pendientes`. El valor `"X"` usado para una pista ya trazada comparte la condición de **no transitable** con otros obstáculos, aunque conceptualmente su origen sea diferente.
+Esto no implica que el conjunto de rutas sea globalmente óptimo: una pista corta puede bloquear rutas posteriores y obligarlas a dar rodeos.
 
-## 8. Pruebas de las 16 conexiones actuales
+## 4. Funciones del módulo `astar.py`
 
-Se han ejecutado `main.py` y un script local `pruebas_conexiones.py` en PyCharm. El estudiante ha aportado las salidas siguientes:
-
-| Comprobación | Resultado comunicado |
+| Función | Responsabilidad |
 | --- | --- |
-| Conexiones definidas y realizadas | 16 de 16 |
-| Conexiones pendientes | 0 |
-| Extremos de cada ruta | Correctos (`True`) |
-| Movimientos entre casillas adyacentes | Correctos (`True`) |
-| Casillas interiores libres en el mapa original | `True` |
-| Sin reutilizar casillas interiores entre pistas | `True` |
-| Longitud total de las rutas | 208 movimientos |
-| Suma de distancias Manhattan | 208 movimientos |
-| Prueba de optimalidad para estas parejas | `True` |
-| Ejecución | Código de salida 0 |
+| `crear_nodo()` | Devuelve un diccionario con `posicion`, `padre`, `g`, `h` y `f` |
+| `calcular_heuristica()` | Calcula la distancia Manhattan |
+| `reconstruir_camino()` | Sigue los nodos `padre`, invierte la lista y devuelve la ruta origen → destino |
+| `es_valida()` | Comprueba límites del mapa y si una casilla puede utilizarse |
+| `sucesores()` | Genera posiciones adyacentes que cumplen las restricciones |
+| `find_path()` | Ejecuta A* con `heapq`, abiertos, cerrados y mejores costes |
 
-**Justificación de la longitud mínima para el conjunto actual.** Cada una de las 16 parejas se encuentra separada por una distancia Manhattan de 13 movimientos; por tanto, cualquier trazado de esas mismas parejas necesita al menos `16 × 13 = 208` movimientos. Puesto que hemos encontrado 16 rutas válidas, sin compartir casillas interiores, cuya suma es 208, **la longitud total es mínima para este conjunto fijo de 16 conexiones** con movimientos ortogonales y coste unitario. No es una garantía general para cualquier conjunto de conexiones ni para otros diseños de placa.
+`find_path()` guarda en `abiertos` las posiciones pendientes, priorizadas por `f`. En `cerrados` registra posiciones expandidas y en `mejores_costes` conserva el menor valor `g` encontrado para cada posición. Cuando llega al destino reconstruye el recorrido. Cuando no encuentra una ruta devuelve `[]`.
 
-La comprobación automática de cruces compara las posiciones interiores de las pistas. En nuestra cuadrícula, con movimientos ortogonales y extremos distintos, esta prueba, junto con las comprobaciones de adyacencia y de casillas transitables, permite verificar que las pistas del conjunto actual no se intersectan en casillas.
+## 5. Interconexión de varias parejas
 
-## 9. Limitaciones actuales y trabajo pendiente
+La función `conectar_pines(mapa, conexiones)`, implementada en `conexiones.py`, aplica la siguiente estrategia secuencial:
 
-- Se han conectado **las 16 parejas provisionales del fichero**, que utilizan 32 de los 64 pines existentes. El diseño final todavía debe determinar qué conexiones adicionales se requieren para cumplir el enunciado. Los terminales de alimentación `S1` y `S2` aún no forman parte de la lista de conexiones.
-- La estrategia secuencial bloquea las casillas ya utilizadas; **no prueba órdenes alternativos ni retrocede sobre rutas anteriores** cuando una conexión queda pendiente. La igualdad con la cota Manhattan es una prueba de óptimo **solo en el conjunto evaluado**, no una propiedad del método general.
-- Para robustez adicional queda por validar de forma explícita que las coordenadas recibidas por `find_path()` estén dentro de la matriz y sean las correspondientes a los pines designados.
-- La zona opcional reservada para disipación térmica todavía no se ha añadido; se elegirá después de estudiar las conexiones completas, se introducirá en el mapa de entrada y se recalcularán todas las rutas.
-- Conviene conservar una captura de la ejecución en PyCharm, tanto de `main.py` como de las pruebas automáticas, como evidencia del informe acumulativo.
+1. Copia las filas del tablero original mediante `fila[:]` para no modificar el dato de entrada.
+2. Recorre las parejas **en el orden en que aparecen en el fichero**.
+3. Localiza origen y destino utilizando `buscar_pin()`.
+4. Ejecuta `find_path()` sobre el mapa actualizado.
+5. Si encuentra una ruta, almacena `(pin_origen, pin_destino, camino)` y marca con `"X"` sus posiciones interiores, impidiendo reutilizarlas.
+6. Si no encuentra una ruta, añade la pareja a `pendientes`.
+7. Devuelve `mapa_trazado`, `rutas` y `pendientes`.
 
-## 10. Relación con los materiales del profesor
+No se cambian los extremos de las conexiones cuando aparece un bloqueo. En el diseño actual se ha establecido previamente un orden con pistas interiores, corredores exteriores y alimentación. La estrategia **no incorpora retroceso ni búsqueda exhaustiva de órdenes alternativos**.
 
-- **Clase 3:** representación del soporte y lectura de códigos de casillas.
-- **Clase 5:** búsqueda A*, nodos, abiertos, evaluación `f=g+h`, movimientos y Manhattan.
-- **Clase 7:** plantilla de interconexión con diccionarios, `heapq`, reconstrucción de caminos y `find_path`.
+## 6. Resultado del tablero actual
 
-La reserva secuencial de pistas en `conexiones.py` constituye una ampliación propia para utilizar A* en varias conexiones. El documento describe el comportamiento implementado y seguirá actualizándose con el proyecto.
+Datos del problema: soporte de 30 × 30, cuatro circuitos de 6 × 6, 64 pines y dos terminales de alimentación; **33 parejas predefinidas**.
+
+La ejecución de `main.py` en PyCharm ha producido las siguientes longitudes:
+
+| Grupo de rutas | Cantidad | Longitudes (movimientos) | Subtotal |
+| --- | ---: | --- | ---: |
+| Horizontales interiores | 8 | 9 cada una | 72 |
+| Verticales interiores | 8 | 9 cada una | 72 |
+| Corredor superior | 4 | 13, 17, 21, 25 | 76 |
+| Corredor inferior | 4 | 13, 17, 21, 25 | 76 |
+| Corredor izquierdo | 3 | 13, 17, 21 | 51 |
+| Corredor derecho | 4 | 13, 17, 21, 25 | 76 |
+| Alimentación | 2 | 17, 17 | 34 |
+| **Total** | **33** | | **457** |
+
+**Resultado comunicado:** `Conexiones realizadas: 33`, `Conexiones pendientes: 0`, `Longitud total: 457`.
+
+### Alcance de la optimalidad
+
+La suma de las **distancias Manhattan** de estas 33 parejas es **381 movimientos**, un límite inferior matemático para el total. El trazado obtenido mide 457 movimientos, es decir, 76 por encima de ese límite. Eso **no demuestra ni descarta** que 457 sea el mínimo global alcanzable con las restricciones; solo confirma una solución válida de longitud 457.
+
+Cada búsqueda individual obtiene el menor camino disponible con las pistas anteriores bloqueadas. El orden establecido es parte de la estrategia, no una garantía de optimalidad global.
+
+## 7. Pruebas y evidencias observadas
+
+El script local `comprobar_diseno.py`, ejecutado en PyCharm, ha comunicado los siguientes resultados:
+
+| Verificación | Salida |
+| --- | --- |
+| Dimensiones | `30 x 30` |
+| Terminales presentes | `66` |
+| Terminales usados | `66` |
+| Cada terminal se utiliza una vez | `True` |
+| Conexiones realizadas | `33` |
+| Conexiones pendientes | `[]` |
+| Extremos correctos | `True` |
+| Movimientos adyacentes | `True` |
+| Sin atravesar obstáculos | `True` |
+| Sin cruces / casillas interiores repetidas | `True` |
+| Longitud total | `457` |
+| Resultado global de la comprobación | `DISENO VALIDO: True` |
+
+Estas verificaciones comprueban las rutas calculadas: cada camino une los pines indicados, los movimientos son ortogonales y adyacentes, las casillas interiores estaban libres en el mapa original y ninguna se repite entre las pistas. Dado que los 66 extremos son distintos y los movimientos van de una casilla a otra, el control de posiciones permite detectar intersecciones en el modelo discreto utilizado.
+
+Las pruebas se han ejecutado en el entorno de PyCharm. Sus scripts locales no forman parte del código que se pretende versionar; el informe de pruebas y las evidencias gráficas podrán incorporarse a la documentación final.
+
+## 8. Limitaciones y posibles extensiones
+
+- Las 33 parejas se definen de antemano. **El algoritmo no elige automáticamente qué pines emparejar**.
+- La estrategia secuencial encuentra una solución para este tablero, pero podría dejar conexiones pendientes en otras configuraciones.
+- No se implementa una búsqueda global que pruebe exhaustivamente órdenes y rutas alternativas. Por tanto, no se afirma que el total de 457 sea óptimo.
+- El código se ha validado con el fichero actual; podrían incorporarse comprobaciones adicionales de coordenadas fuera de rango y de ficheros mal formados.
+- **Zona reservada para disipación térmica:** sigue pendiente como ampliación opcional. Si se incorpora, se marcará en el tablero inicial y se repetirán el cálculo y la validación de las rutas.
+
+Este documento explica el funcionamiento actual de A* y se actualizará si cambia la estrategia o se añade alguna restricción al trazado.
