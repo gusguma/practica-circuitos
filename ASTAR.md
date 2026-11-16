@@ -2,7 +2,7 @@
 
 ## 1. Objetivo
 
-El algoritmo A* permite encontrar un camino entre dos pines de la placa cuadriculada sin atravesar circuitos, otros pines o casillas prohibidas. Se utiliza como base para la posterior interconexión de múltiples pares de pines. Esta fase resuelve **una única conexión por búsqueda**, no el problema global de rutas sin cruces.
+El algoritmo A* permite encontrar un camino entre dos pines de la placa cuadriculada sin atravesar circuitos, otros pines o casillas prohibidas. Además, el módulo `conexiones.py` aplica A* sucesivamente a las parejas de pines y reserva las casillas interiores de cada ruta. **A* resuelve una conexión individual; la interconexión múltiple se realiza con una estrategia secuencial propia**, cuyo resultado depende del orden de las parejas.
 
 La implementación parte del planteamiento de los cuadernos **Clase 5: `AStar-2Oct2026.ipynb`** y **Clase 7: `InterconexionCircuitos-Clase7-VEstudiantes.ipynb`**. En la Clase 5 se explica A* con clases `Nodo` y `Abiertos` y una función heurística Manhattan sobre una cuadrícula; para esta práctica se ha seguido la plantilla de la Clase 7, que propone `crearNodo`, `calcularHeuristica`, `reconstruirCamino` y `find_path`. Se han adaptado los nombres al estilo `snake_case` utilizado en el proyecto y la matriz se representa como **lista de listas**, como en la construcción del tablero.
 
@@ -93,12 +93,52 @@ La salida contiene dos impresiones de `Camino sin obstaculos: True`; se trata de
 
 El informe de pruebas acumulativo se mantiene en `documentacion/Informe_pruebas_Practica1.docx`; se incorporarán capturas y nuevas pruebas conforme avance el proyecto.
 
-## 7. Limitaciones actuales y trabajo pendiente
+## 7. Interconexión múltiple con `conexiones.py`
 
-- A* calcula la ruta mínima **para una pareja concreta** teniendo en cuenta el mapa actual. No garantiza por sí mismo que se puedan realizar todas las conexiones ni que su suma de longitudes sea mínima.
-- La lista de 16 conexiones es provisional y no incluye todavía todos los pines ni los terminales de alimentación como extremos de rutas.
-- La búsqueda actual no reserva las casillas utilizadas para otras rutas; esa funcionalidad corresponde al trazado múltiple.
-- Para robustez adicional queda por validar de forma explícita que las coordenadas recibidas estén dentro de la matriz y sean realmente las de los pines designados. Las pruebas actuales se han realizado con coordenadas válidas obtenidas mediante `buscar_pin`.
-- La zona opcional reservada para disipación térmica se estudiará cuando exista un trazado múltiple, incorporándola al mapa antes de la validación final.
+Para conectar varias parejas de pines se utiliza `conectar_pines(mapa, conexiones)`; esta función **no forma parte de la plantilla de los cuadernos**, sino que organiza llamadas sucesivas al A* explicado en clase.
 
-Las comprobaciones específicas de pines de origen y destino y el uso de listas de listas son adaptaciones al formato de nuestro proyecto. Este documento describe el estado técnico del algoritmo y seguirá actualizándose cuando evolucione la implementación.
+1. Se crea `mapa_trazado` copiando cada fila del mapa original (`fila[:]`). De este modo el dato de entrada no se altera.
+2. Se recorren, en el orden del fichero, las tuplas `(pin_origen, pin_destino)`.
+3. Se localizan las coordenadas de los extremos mediante `buscar_pin()`.
+4. Se llama a `find_path()` para calcular una ruta válida en el mapa actualizado.
+5. Si existe ruta, se guarda y se marcan con `"X"` sus posiciones interiores (`camino[1:-1]`), reservándolas para las siguientes búsquedas. Los pines extremos se conservan.
+6. Si no hay ruta, se registra la conexión como pendiente.
+
+La función devuelve `mapa_trazado`, `rutas` y `pendientes`. El valor `"X"` usado para una pista ya trazada comparte la condición de **no transitable** con otros obstáculos, aunque conceptualmente su origen sea diferente.
+
+## 8. Pruebas de las 16 conexiones actuales
+
+Se han ejecutado `main.py` y un script local `pruebas_conexiones.py` en PyCharm. El estudiante ha aportado las salidas siguientes:
+
+| Comprobación | Resultado comunicado |
+| --- | --- |
+| Conexiones definidas y realizadas | 16 de 16 |
+| Conexiones pendientes | 0 |
+| Extremos de cada ruta | Correctos (`True`) |
+| Movimientos entre casillas adyacentes | Correctos (`True`) |
+| Casillas interiores libres en el mapa original | `True` |
+| Sin reutilizar casillas interiores entre pistas | `True` |
+| Longitud total de las rutas | 208 movimientos |
+| Suma de distancias Manhattan | 208 movimientos |
+| Prueba de optimalidad para estas parejas | `True` |
+| Ejecución | Código de salida 0 |
+
+**Justificación de la longitud mínima para el conjunto actual.** Cada una de las 16 parejas se encuentra separada por una distancia Manhattan de 13 movimientos; por tanto, cualquier trazado de esas mismas parejas necesita al menos `16 × 13 = 208` movimientos. Puesto que hemos encontrado 16 rutas válidas, sin compartir casillas interiores, cuya suma es 208, **la longitud total es mínima para este conjunto fijo de 16 conexiones** con movimientos ortogonales y coste unitario. No es una garantía general para cualquier conjunto de conexiones ni para otros diseños de placa.
+
+La comprobación automática de cruces compara las posiciones interiores de las pistas. En nuestra cuadrícula, con movimientos ortogonales y extremos distintos, esta prueba, junto con las comprobaciones de adyacencia y de casillas transitables, permite verificar que las pistas del conjunto actual no se intersectan en casillas.
+
+## 9. Limitaciones actuales y trabajo pendiente
+
+- Se han conectado **las 16 parejas provisionales del fichero**, que utilizan 32 de los 64 pines existentes. El diseño final todavía debe determinar qué conexiones adicionales se requieren para cumplir el enunciado. Los terminales de alimentación `S1` y `S2` aún no forman parte de la lista de conexiones.
+- La estrategia secuencial bloquea las casillas ya utilizadas; **no prueba órdenes alternativos ni retrocede sobre rutas anteriores** cuando una conexión queda pendiente. La igualdad con la cota Manhattan es una prueba de óptimo **solo en el conjunto evaluado**, no una propiedad del método general.
+- Para robustez adicional queda por validar de forma explícita que las coordenadas recibidas por `find_path()` estén dentro de la matriz y sean las correspondientes a los pines designados.
+- La zona opcional reservada para disipación térmica todavía no se ha añadido; se elegirá después de estudiar las conexiones completas, se introducirá en el mapa de entrada y se recalcularán todas las rutas.
+- Conviene conservar una captura de la ejecución en PyCharm, tanto de `main.py` como de las pruebas automáticas, como evidencia del informe acumulativo.
+
+## 10. Relación con los materiales del profesor
+
+- **Clase 3:** representación del soporte y lectura de códigos de casillas.
+- **Clase 5:** búsqueda A*, nodos, abiertos, evaluación `f=g+h`, movimientos y Manhattan.
+- **Clase 7:** plantilla de interconexión con diccionarios, `heapq`, reconstrucción de caminos y `find_path`.
+
+La reserva secuencial de pistas en `conexiones.py` constituye una ampliación propia para utilizar A* en varias conexiones. El documento describe el comportamiento implementado y seguirá actualizándose con el proyecto.
