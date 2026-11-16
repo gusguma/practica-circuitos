@@ -1,79 +1,141 @@
-# Práctica 1 — Búsqueda A* e interconexión de circuitos
+# Práctica 1 — Algoritmo A* y trazado de conexiones
 
-## 1. Objetivo y relación con los cuadernos
+## 1. Objetivo y referencias de clase
 
-Resolver automáticamente las rutas entre parejas de pines **previamente definidas**, utilizando A* para cada pareja y evitando que las pistas atraviesen circuitos, zonas bloqueadas u otras conexiones.
+Calcular rutas para parejas de pines **previamente definidas**, utilizando el algoritmo A* y respetando los obstáculos de la placa, la zona de disipación térmica y las pistas ya trazadas. El cálculo se realiza sobre el soporte de 30 × 30 descrito en `TABLERO.md`.
 
-La base del algoritmo procede de los materiales de la asignatura:
+La implementación sigue el enfoque de los cuadernos de la asignatura:
 
-- **Clase 5, `AStar-2Oct2026.ipynb`:** estados, nodos, abiertos y cerrados, función de evaluación y distancia Manhattan.
-- **Clase 7, `InterconexionCircuitos-Clase7-VEstudiantes.ipynb`:** planteamiento del problema de circuitos, diccionarios para los nodos, `heapq` y funciones auxiliares de A*.
+- **Clase 5 — `AStar-2Oct2026.ipynb`:** representación de estados, nodos, abiertos y cerrados, función de evaluación y heurística Manhattan.
+- **Clase 7 — `InterconexionCircuitos-Clase7-VEstudiantes.ipynb`:** aplicación a interconexión de circuitos, nodos representados mediante diccionarios, `heapq` y funciones auxiliares.
 
-El proyecto utiliza nombres en `snake_case` y listas de listas para el tablero. `conexiones.py`, que coordina varias ejecuciones de A*, es una **ampliación propia** para gestionar el trazado múltiple; no sustituye a A* por otro algoritmo.
+Hemos utilizado nombres `snake_case` y listas de listas para el mapa. El módulo `conexiones.py` es una **ampliación propia** que coordina varias búsquedas A* consecutivas, sin sustituir el algoritmo principal.
 
-## 2. Modelo de búsqueda
+## 2. Formulación del problema de búsqueda
 
 | Concepto | Representación |
 | --- | --- |
-| Estado | `(fila, columna)` |
+| Estado | `(fila, columna)` de una casilla |
 | Estado inicial | Coordenadas del pin de origen |
 | Meta | Coordenadas del pin de destino |
 | Acciones | Arriba, abajo, derecha e izquierda |
-| Coste por acción | 1 movimiento |
-| Casillas transitables | `"0"` y los dos extremos de la conexión actual |
-| Casillas no transitables | `"X"`, pines ajenos y pistas previamente ocupadas |
-| Solución individual | Lista de coordenadas origen → destino |
-| Ausencia de ruta | Lista vacía `[]` |
+| Coste de acción | 1 movimiento |
+| Posiciones transitables | Casillas `"0"` y extremos de la conexión actual |
+| Posiciones bloqueadas | `"X"` (circuitos y zona térmica), otros pines y pistas ya ocupadas |
+| Solución individual | Lista de posiciones ordenadas desde origen hasta destino |
+| Sin solución | Lista vacía `[]` |
 
-La longitud de un camino encontrado se obtiene como `len(camino) - 1`, pues el número de desplazamientos es uno menos que el número de posiciones recorridas.
+Solo se permiten movimientos ortogonales; no se contemplan diagonales ni saltos entre posiciones. La longitud de una ruta se calcula con `len(camino) - 1`.
 
-## 3. Heurística Manhattan
+## 3. Función de evaluación y heurística
 
-Con movimientos ortogonales de coste unitario:
+A* utiliza:
 
 ```text
-h(n) = abs(fila_actual - fila_destino) + abs(columna_actual - columna_destino)
 f(n) = g(n) + h(n)
 ```
 
-`g(n)` es el número de movimientos realizados desde el origen y `h(n)` estima los restantes sin considerar obstáculos. Manhattan es admisible y consistente en esta cuadrícula; A* encuentra una ruta de menor coste **para cada conexión individual con los obstáculos ya fijados**.
+- `g(n)` es el número de movimientos realizados desde el origen hasta el nodo `n`.
+- `h(n)` estima los movimientos restantes hasta la meta.
+- `f(n)` estima el coste total de la ruta que pasa por `n`.
 
-Esto no implica que el conjunto de rutas sea globalmente óptimo: una pista corta puede bloquear rutas posteriores y obligarlas a dar rodeos.
+Para calcular `h(n)` usamos **distancia Manhattan**, como en el ejemplo de tablero bidimensional de la Clase 5:
 
-## 4. Funciones del módulo `astar.py`
+```text
+h(n) = abs(fila_actual - fila_destino)
+     + abs(columna_actual - columna_destino)
+```
 
-| Función | Responsabilidad |
+Con cuatro movimientos ortogonales de coste 1, Manhattan es admisible y consistente: nunca sobreestima la distancia mínima real, aunque ignore los obstáculos.
+
+En las condiciones de esta implementación, A* encuentra el camino más corto **para una conexión individual considerando las casillas bloqueadas en ese momento**. Esto no equivale a optimizar simultáneamente todas las pistas.
+
+## 4. Funciones de `astar.py`
+
+| Función | Descripción |
 | --- | --- |
-| `crear_nodo()` | Devuelve un diccionario con `posicion`, `padre`, `g`, `h` y `f` |
-| `calcular_heuristica()` | Calcula la distancia Manhattan |
-| `reconstruir_camino()` | Sigue los nodos `padre`, invierte la lista y devuelve la ruta origen → destino |
-| `es_valida()` | Comprueba límites del mapa y si una casilla puede utilizarse |
-| `sucesores()` | Genera posiciones adyacentes que cumplen las restricciones |
-| `find_path()` | Ejecuta A* con `heapq`, abiertos, cerrados y mejores costes |
+| `crear_nodo()` | Crea un diccionario con `posicion`, `padre`, `g`, `h`, `f`. |
+| `calcular_heuristica()` | Calcula Manhattan entre dos posiciones. |
+| `reconstruir_camino()` | Recorre los enlaces `padre` desde la meta y devuelve las posiciones en orden origen → destino. |
+| `es_valida()` | Comprueba los límites y que la casilla sea libre o un extremo permitido. |
+| `sucesores()` | Genera movimientos ortogonales válidos. |
+| `find_path()` | Ejecuta A* utilizando una cola de prioridad, costes conocidos y posiciones exploradas. |
 
-`find_path()` guarda en `abiertos` las posiciones pendientes, priorizadas por `f`. En `cerrados` registra posiciones expandidas y en `mejores_costes` conserva el menor valor `g` encontrado para cada posición. Cuando llega al destino reconstruye el recorrido. Cuando no encuentra una ruta devuelve `[]`.
+Los nodos se representan mediante **diccionarios**, de acuerdo con la plantilla de la Clase 7, en lugar de reproducir la clase `Nodo` genérica de la Clase 5.
 
-## 5. Interconexión de varias parejas
+### Funcionamiento de `find_path()`
 
-La función `conectar_pines(mapa, conexiones)`, implementada en `conexiones.py`, aplica la siguiente estrategia secuencial:
+1. Comprueba que se han localizado el origen y el destino.
+2. Crea el nodo inicial con `g=0` y `h` igual a Manhattan.
+3. Lo introduce en `abiertos`, gestionado mediante `heapq`.
+4. Extrae el nodo con menor `f`.
+5. Si es el destino, devuelve `reconstruir_camino(nodo_actual)`.
+6. En otro caso, lo añade a `cerrados` y estudia sus sucesores.
+7. Para cada sucesor, calcula el nuevo coste `g`; si mejora el coste conocido, crea un nodo y lo añade a `abiertos`.
+8. Si se agotan los nodos pendientes sin encontrar la meta, devuelve `[]`.
 
-1. Copia las filas del tablero original mediante `fila[:]` para no modificar el dato de entrada.
-2. Recorre las parejas **en el orden en que aparecen en el fichero**.
-3. Localiza origen y destino utilizando `buscar_pin()`.
-4. Ejecuta `find_path()` sobre el mapa actualizado.
-5. Si encuentra una ruta, almacena `(pin_origen, pin_destino, camino)` y marca con `"X"` sus posiciones interiores, impidiendo reutilizarlas.
-6. Si no encuentra una ruta, añade la pareja a `pendientes`.
-7. Devuelve `mapa_trazado`, `rutas` y `pendientes`.
+Las estructuras empleadas son:
 
-No se cambian los extremos de las conexiones cuando aparece un bloqueo. En el diseño actual se ha establecido previamente un orden con pistas interiores, corredores exteriores y alimentación. La estrategia **no incorpora retroceso ni búsqueda exhaustiva de órdenes alternativos**.
+| Estructura | Utilidad |
+| --- | --- |
+| `abiertos` | Cola de prioridad de nodos pendientes. |
+| `cerrados` | Conjunto de posiciones exploradas. |
+| `mejores_costes` | Diccionario con el mejor coste `g` conocido para cada posición. |
+| `contador` | Desempata prioridades iguales sin comparar diccionarios de nodos. |
 
-## 6. Resultado del tablero actual
+La función `es_valida()` evita cruzar el interior de los circuitos, la zona térmica y otros pines. Más adelante, la misma comprobación impide usar las casillas que ocupan rutas ya calculadas.
 
-Datos del problema: soporte de 30 × 30, cuatro circuitos de 6 × 6, 64 pines y dos terminales de alimentación; **33 parejas predefinidas**.
+## 5. Gestión de varias conexiones
 
-La ejecución de `main.py` en PyCharm ha producido las siguientes longitudes:
+El módulo `conexiones.py` contiene `conectar_pines(mapa, conexiones)`. Esta función **no determina los emparejamientos**; recibe las parejas en el orden definido en el fichero de entrada.
 
-| Grupo de rutas | Cantidad | Longitudes (movimientos) | Subtotal |
+Su procedimiento es:
+
+1. Crear `mapa_trazado` como copia de `mapa`, copiando cada fila mediante `fila[:]`.
+2. Inicializar las listas `rutas` y `pendientes`.
+3. Para cada pareja, localizar sus pines con `buscar_pin()`.
+4. Llamar a `find_path(mapa_trazado, origen, destino)`.
+5. Si hay camino, guardar `(pin_origen, pin_destino, camino)` y reservar sus casillas interiores.
+6. Si no hay camino, almacenar la pareja en `pendientes`.
+7. Devolver `mapa_trazado, rutas, pendientes`.
+
+### Identificación de pistas en la matriz
+
+En la versión actual las posiciones interiores de una ruta no se marcan con el carácter genérico `"X"`, sino con **un identificador numérico de dos caracteres**:
+
+```python
+identificador = str(numero_conexion).rjust(2, "0")
+
+for fila, columna in camino[1:-1]:
+    mapa_trazado[fila][columna] = identificador
+```
+
+Así la pista `01` corresponde a A5–Bd, la `02` a A6–Be, y sucesivamente hasta `33`, que corresponde a S2–Cg. Los pines de origen y destino permanecen visibles.
+
+**Este cambio de representación no modifica el criterio de búsqueda.** La función `es_valida()` solo admite casillas `"0"` o los extremos de la conexión actual; por ello, las casillas que contienen `"01"` a `"33"` siguen bloqueadas para las conexiones posteriores.
+
+La distinción entre matrices es importante:
+
+- `mapa` contiene el soporte original, sin pistas.
+- `mapa_trazado` conserva ese soporte e incorpora las rutas numeradas.
+
+En `main.py` se muestra la matriz calculada con `mostrar_matriz(mapa_trazado)` y después una leyenda `01 : A5 - Bd`, ..., `33 : S2 - Cg`. La correspondencia completa de las 33 pistas aparece en `TABLERO.md`.
+
+### Zona de disipación térmica como obstáculo
+
+Antes de ejecutar A*, `generar_tablero.py` marca como `XX` un rectángulo de **3 × 4 casillas** en las filas **13–15** y columnas **13–16**. Al leer el fichero, `tablero.py` convierte `XX` en `"X"`. Por eso, `es_valida()` rechaza estas casillas exactamente igual que el interior bloqueado de los circuitos; **no se ha modificado `astar.py` ni `conexiones.py`** para incorporar la restricción.
+
+Las doce casillas reservadas no pertenecían a las rutas calculadas antes de esta modificación, de modo que las 33 conexiones siguen completándose con **457 movimientos**. Si la zona se trasladara a una pista existente, sería necesario recalcular y validar de nuevo todo el trazado.
+
+### Orden de trazado
+
+Se procesan primero las 16 pistas interiores, después las de los corredores superior, inferior, izquierdo y derecho, y finalmente las dos de alimentación. Ese orden forma parte de la definición de entrada. La estrategia actual es **secuencial**: no incorpora retroceso ni un planificador global que reconsidere caminos anteriores.
+
+## 6. Resultados de ejecución
+
+El tablero tiene cuatro circuitos con 64 pines, los terminales S1 y S2 y una zona térmica de **12 casillas bloqueadas**; hay **33 conexiones previamente definidas**. La ejecución realizada en PyCharm obtuvo:
+
+| Grupo | Rutas | Longitudes (movimientos) | Subtotal |
 | --- | ---: | --- | ---: |
 | Horizontales interiores | 8 | 9 cada una | 72 |
 | Verticales interiores | 8 | 9 cada una | 72 |
@@ -84,43 +146,79 @@ La ejecución de `main.py` en PyCharm ha producido las siguientes longitudes:
 | Alimentación | 2 | 17, 17 | 34 |
 | **Total** | **33** | | **457** |
 
-**Resultado comunicado:** `Conexiones realizadas: 33`, `Conexiones pendientes: 0`, `Longitud total: 457`.
+Resultados observados:
 
-### Alcance de la optimalidad
+```text
+Conexiones realizadas: 33
+Conexiones pendientes: 0
+Longitud total: 457
+```
 
-La suma de las **distancias Manhattan** de estas 33 parejas es **381 movimientos**, un límite inferior matemático para el total. El trazado obtenido mide 457 movimientos, es decir, 76 por encima de ese límite. Eso **no demuestra ni descarta** que 457 sea el mínimo global alcanzable con las restricciones; solo confirma una solución válida de longitud 457.
+Además, `main.py` ha mostrado el **tablero de 30 × 30 con las pistas numeradas del `01` al `33`** y la leyenda correspondiente. Se ha comprobado que añadir esos números no altera las longitudes ni impide completar ninguna de las rutas.
 
-Cada búsqueda individual obtiene el menor camino disponible con las pistas anteriores bloqueadas. El orden establecido es parte de la estrategia, no una garantía de optimalidad global.
+## 7. Validación de las rutas
 
-## 7. Pruebas y evidencias observadas
+El script local `comprobar_diseno.py`, ejecutado después de incorporar la zona térmica y las pistas numeradas, ha devuelto:
 
-El script local `comprobar_diseno.py`, ejecutado en PyCharm, ha comunicado los siguientes resultados:
+```text
+Dimensiones: 30 x 30
+Terminales del tablero: 66
+Terminales utilizados: 66
+Todos conectados una vez: True
+Conexiones realizadas: 33
+Conexiones pendientes: []
+Extremos correctos: True
+Movimientos validos: True
+Sin obstaculos: True
+Sin cruces: True
+Longitud total: 457
+DISENO VALIDO: True
+```
 
-| Verificación | Salida |
-| --- | --- |
-| Dimensiones | `30 x 30` |
-| Terminales presentes | `66` |
-| Terminales usados | `66` |
-| Cada terminal se utiliza una vez | `True` |
-| Conexiones realizadas | `33` |
-| Conexiones pendientes | `[]` |
-| Extremos correctos | `True` |
-| Movimientos adyacentes | `True` |
-| Sin atravesar obstáculos | `True` |
-| Sin cruces / casillas interiores repetidas | `True` |
-| Longitud total | `457` |
-| Resultado global de la comprobación | `DISENO VALIDO: True` |
+Estas pruebas verifican que:
 
-Estas verificaciones comprueban las rutas calculadas: cada camino une los pines indicados, los movimientos son ortogonales y adyacentes, las casillas interiores estaban libres en el mapa original y ninguna se repite entre las pistas. Dado que los 66 extremos son distintos y los movimientos van de una casilla a otra, el control de posiciones permite detectar intersecciones en el modelo discreto utilizado.
+- Todos los terminales definidos aparecen como extremos de una conexión, exactamente una vez.
+- Cada recorrido empieza y termina en los pines adecuados.
+- Los movimientos son adyacentes y ortogonales.
+- Ninguna casilla interior de una ruta contiene un obstáculo en el tablero original.
+- No se repite ninguna casilla interior entre rutas distintas.
+- No quedan conexiones pendientes y la longitud total es 457.
 
-Las pruebas se han ejecutado en el entorno de PyCharm. Sus scripts locales no forman parte del código que se pretende versionar; el informe de pruebas y las evidencias gráficas podrán incorporarse a la documentación final.
+La comprobación local específica `comprobar_zona_termica.py` ha devuelto:
 
-## 8. Limitaciones y posibles extensiones
+```text
+PRUEBA DE LA ZONA TERMICA
+Dimensiones de la zona: 3 x 4
+Casillas reservadas: 12
+Todas las casillas bloqueadas: True
+Conexiones definidas: 33
+Conexiones realizadas: 33
+Conexiones pendientes: []
+Ninguna ruta atraviesa la zona: True
+Longitud total: 457
+ZONA TERMICA VALIDA: True
+```
 
-- Las 33 parejas se definen de antemano. **El algoritmo no elige automáticamente qué pines emparejar**.
-- La estrategia secuencial encuentra una solución para este tablero, pero podría dejar conexiones pendientes en otras configuraciones.
-- No se implementa una búsqueda global que pruebe exhaustivamente órdenes y rutas alternativas. Por tanto, no se afirma que el total de 457 sea óptimo.
-- El código se ha validado con el fichero actual; podrían incorporarse comprobaciones adicionales de coordenadas fuera de rango y de ficheros mal formados.
-- **Zona reservada para disipación térmica:** sigue pendiente como ampliación opcional. Si se incorpora, se marcará en el tablero inicial y se repetirán el cálculo y la validación de las rutas.
+Esta segunda prueba comprueba explícitamente las coordenadas bloqueadas y que ningún camino utiliza una de esas posiciones. Como los extremos son distintos y las rutas solo pasan por casillas interiores libres, el control de ocupación es apropiado para detectar solapamientos y cruces **en la cuadrícula discreta utilizada**. Las pruebas locales quedan fuera del repositorio, mientras que sus resultados se recogen en la documentación del proyecto.
 
-Este documento explica el funcionamiento actual de A* y se actualizará si cambia la estrategia o se añade alguna restricción al trazado.
+## 8. Análisis de la optimalidad
+
+La suma de las distancias Manhattan entre las 33 parejas es de **381 movimientos**, lo que representa un límite inferior para cualquier trazado con movimientos ortogonales de coste 1.
+
+El trazado obtenido utiliza **457 movimientos**, es decir, 76 más que ese límite inferior. Estas diferencias proceden de los rodeos necesarios para evitar componentes y pistas ocupadas.
+
+Por tanto:
+
+- Cada ejecución individual de A* busca el camino más corto disponible con los obstáculos establecidos en ese instante.
+- Las 33 rutas obtenidas constituyen una **solución válida** para el tablero y el orden actuales.
+- **No se ha demostrado que 457 sea el mínimo global** para todas las conexiones simultáneamente: otra planificación podría producir una longitud total menor.
+
+## 9. Limitaciones y posibles ampliaciones
+
+- Las parejas de pines están fijadas en el fichero; no se generan automáticamente.
+- El planificador secuencial puede bloquear conexiones en otros tableros, aunque en el actual complete las 33.
+- No se implementan búsqueda exhaustiva de órdenes alternativos ni retroceso global.
+- La representación gráfica actual es la matriz textual con identificadores; un esquema visual puede construirse a partir de las coordenadas reales de las rutas.
+- La zona de disipación térmica ya está incorporada como obstáculo fijo de 12 casillas y ha superado su validación. No se modela el comportamiento físico del calor; si cambia la zona habrá que repetir la búsqueda y las comprobaciones.
+
+Este documento describe el algoritmo y su aplicación en el estado actual del proyecto. Se actualizará si se modifica la estrategia de planificación o se añaden restricciones.

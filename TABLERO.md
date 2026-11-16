@@ -6,7 +6,7 @@ Representar el soporte sobre el que se sitúan los circuitos integrados y defini
 
 En la implementación actual intervienen los siguientes archivos:
 
-- `generar_tablero.py`: construye los circuitos, sus pines y las conexiones definidas, y escribe el fichero de entrada.
+- `generar_tablero.py`: construye los circuitos, sus pines, la zona térmica y las conexiones definidas, y escribe el fichero de entrada.
 - `tablero.py`: lee el fichero, busca las posiciones de los pines y muestra las matrices en consola.
 - `conexiones.py`: calcula y marca las rutas sobre una copia del mapa.
 - `main.py`: coordina la ejecución y presenta las rutas, el tablero resultante y su leyenda.
@@ -21,6 +21,7 @@ En la implementación actual intervienen los siguientes archivos:
 | Pines de cada circuito | 16: cuatro por lado, sin utilizar las esquinas |
 | Total de pines de circuitos | 64 |
 | Terminales de alimentación | S1 y S2 |
+| Zona de disipación térmica | 3 × 4 casillas (12 posiciones bloqueadas) |
 
 El requisito del soporte cinco veces mayor que el circuito se interpreta como un factor cinco **en cada dimensión lineal**: `6 × 5 = 30`. Esta interpretación es una decisión documentada del diseño.
 
@@ -34,6 +35,7 @@ Las coordenadas se expresan como `(fila, columna)`, comenzando desde cero:
 | Circuito D | `(19, 19)` | Filas 19–24, columnas 19–24 |
 | Alimentación S1 | — | `(0, 14)` |
 | Alimentación S2 | — | `(29, 14)` |
+| Zona térmica | `(13, 13)` | Filas 13–15, columnas 13–16 |
 
 La disposición deja cinco casillas libres entre los circuitos exteriores y el borde de la placa, y ocho casillas libres entre circuitos enfrentados. Los corredores se utilizan para las pistas de conexión.
 
@@ -44,7 +46,7 @@ Esquema orientativo de la distribución, **no de las rutas**:
        ┌───────────────────────┐
        │      A         B      │
        │                       │
-       │                       │
+       │       [XXXX]          │
        │      C         D      │
        └───────────────────────┘
                   S2
@@ -76,7 +78,7 @@ La lectura transforma los códigos del fichero de la siguiente forma:
 | Fichero | Matriz `mapa` | Significado |
 | --- | --- | --- |
 | `00` | `"0"` | Casilla libre |
-| `XX` | `"X"` | Casilla bloqueada |
+| `XX` | `"X"` | Casilla bloqueada (interior de circuitos o zona térmica) |
 | `A1`, `Bd`, etc. | Mismo código | Pin de circuito |
 | `S1`, `S2` | Mismo código | Terminal de alimentación |
 
@@ -111,8 +113,9 @@ En este modelo se ha decidido utilizar cada uno de los 64 pines y los dos termin
 1. Construye una matriz de 30 filas, cada una con 30 cadenas `"00"`.
 2. Coloca los circuitos A, B, C y D en las posiciones definidas.
 3. Coloca los terminales S1 y S2.
-4. Define las parejas de pines mediante una lista de tuplas.
-5. Escribe la placa y las conexiones en `DefinicionConexionesCircuito.txt`.
+4. Reserva la zona térmica central (filas 13–15 y columnas 13–16) y la marca con `XX`.
+5. Define las parejas de pines mediante una lista de tuplas.
+6. Escribe la placa y las conexiones en `DefinicionConexionesCircuito.txt`.
 
 ### `tablero.py`
 
@@ -125,7 +128,29 @@ En este modelo se ha decidido utilizar cada uno de los 64 pines y los dos termin
 
 Se utilizan listas, tuplas, bucles, condicionales y lectura de ficheros, como en los cuadernos del profesor. Los nombres se han adaptado a la convención `snake_case` de Python.
 
-## 7. Representación de las conexiones sobre el soporte
+## 7. Zona de disipación térmica
+
+La placa incorpora una **región rectangular de 3 filas por 4 columnas**, situada en el centro del soporte:
+
+| Parámetro | Valor |
+| --- | --- |
+| Fila inicial | 13 |
+| Columna inicial | 13 |
+| Alto | 3 casillas |
+| Ancho | 4 casillas |
+| Casillas bloqueadas | 12 |
+| Filas ocupadas | 13, 14 y 15 |
+| Columnas ocupadas | 13, 14, 15 y 16 |
+
+En `generar_tablero.py` se definen `FILA_ZONA_TERMICA`, `COLUMNA_ZONA_TERMICA`, `ALTO_ZONA_TERMICA` y `ANCHO_ZONA_TERMICA`. Dos bucles `for` recorren la región. Antes de marcar cada posición, se comprueba que contiene `00`; si una casilla ya está ocupada, se genera un `ValueError` para evitar sobrescribir circuitos o terminales. Después se escribe `XX`.
+
+Al cargar el fichero, `tablero.py` convierte cada `XX` en `"X"`. Por tanto, la región térmica se comporta como **un obstáculo más para A*** sin requerir cambios en el algoritmo. Las casillas reservadas se mantienen visibles como un bloque de 3 × 4 letras `X` en la matriz de salida.
+
+En el tablero original, estas doce casillas estaban libres y no pertenecían a ninguna pista calculada. Tras introducir la región, se han vuelto a ejecutar las 33 conexiones y se ha obtenido la misma longitud total de **457 movimientos**.
+
+Esta zona es una **reserva geométrica de espacio**: el programa no simula transferencia de calor ni calcula temperaturas.
+
+## 8. Representación de las conexiones sobre el soporte
 
 Se mantienen **dos matrices diferentes**:
 
@@ -145,7 +170,7 @@ La codificación del tablero mostrado en consola es:
 | Código visible | Significado |
 | --- | --- |
 | `0` | Casilla libre |
-| `X` | Casilla prohibida o parte bloqueada de un circuito |
+| `X` | Casilla prohibida: interior de un circuito o zona térmica |
 | `A1`, `Bd`, `Cg`, etc. | Pines de circuitos |
 | `S1`, `S2` | Terminales de alimentación |
 | `01` a `33` | Casillas interiores ocupadas por una pista identificada |
@@ -181,20 +206,22 @@ El programa imprime además una **leyenda** que asocia cada identificador con su
 
 La impresión de la matriz es una representación **discreta en consola**: permite comprobar las casillas utilizadas por cada pista, pero no sustituye a un esquema gráfico con líneas y colores. Un diagrama final puede generarse posteriormente a partir de las rutas reales.
 
-## 8. Ejecución y resultados observados
+## 9. Ejecución y resultados observados
 
 Con el directorio de trabajo de PyCharm situado en la raíz del proyecto:
 
 ```bash
 python generar_tablero.py
 python main.py
+python comprobar_diseno.py
+python comprobar_zona_termica.py
 ```
 
-`generar_tablero.py` ha informado de un soporte de 30 × 30, cuatro circuitos de 6 × 6, 64 pines, S1 y S2 y 33 conexiones definidas.
+`generar_tablero.py` ha informado de un soporte de 30 × 30, cuatro circuitos de 6 × 6, 64 pines, S1 y S2, 33 conexiones definidas y una zona térmica de 3 × 4 con 12 casillas reservadas.
 
 `main.py` ha mostrado **33 conexiones realizadas, 0 pendientes y 457 movimientos**. También ha impreso el `TABLERO CON LAS CONEXIONES`, con pistas numeradas del `01` al `33`, y su leyenda.
 
-El script local `comprobar_diseno.py` ha comprobado:
+Los scripts locales `comprobar_diseno.py` y `comprobar_zona_termica.py` han comprobado:
 
 - 66 terminales presentes y utilizados una sola vez.
 - Extremos de ruta correctos.
@@ -202,15 +229,18 @@ El script local `comprobar_diseno.py` ha comprobado:
 - Ausencia de obstáculos y de solapamientos entre pistas.
 - Las 33 rutas realizadas, sin pendientes.
 - Resultado `DISENO VALIDO: True`.
+- La zona térmica tiene 12 casillas y todas están bloqueadas como `"X"`.
+- Ninguna de las 33 rutas atraviesa la región reservada.
+- Resultado `ZONA TERMICA VALIDA: True`.
 
 Estas comprobaciones se refieren al modelo discreto actual. La explicación de A* y de la longitud total aparece en `ASTAR.md`.
 
-## 9. Limitaciones y posibles ampliaciones
+## 10. Limitaciones y posibles ampliaciones
 
 - Las conexiones se definen previamente; el programa no elige los emparejamientos.
 - La proporción de tamaño 5:1 se ha aplicado a cada dimensión lineal.
 - El formato de entrada es sencillo y no realiza una validación exhaustiva de todos los errores posibles del fichero.
 - La visualización actual es textual y utiliza códigos numéricos por pista.
-- **La zona de disipación térmica todavía no se ha incorporado.** Si se añade, deberá marcarse en el tablero de entrada antes de ejecutar A*, volver a calcular las rutas y repetir las pruebas.
+- La zona térmica está modelada solo como un obstáculo geométrico; no se ha implementado una simulación física de disipación. Si se cambia su posición o tamaño, habrá que regenerar el tablero y repetir todas las pruebas.
 
 Este documento describe el funcionamiento actual del tablero y se mantendrá actualizado cuando cambie su diseño o representación.
