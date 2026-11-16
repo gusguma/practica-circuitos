@@ -1,31 +1,35 @@
-from tablero import get_codigo_tablero, cargar_tablero, buscar_pin, mostrar_matriz
 
-print(get_codigo_tablero("00"))
-print(get_codigo_tablero("XX"))
-print(get_codigo_tablero("A1"))
-print(get_codigo_tablero("S1"))
+"""
+Practica 1 - Conexion de circuitos.
+Ejemplo de busqueda de una ruta mediante A*.
+"""
 
+from tablero import cargar_tablero, buscar_pin
+from astar import find_path
+
+# Cargar el tablero y las conexiones.
 mapa, conexiones = cargar_tablero(
     "datos/DefinicionConexionesCircuito.txt"
 )
 
-print("Filas del tablero:", len(mapa))
-print("Columnas del tablero:", len(mapa[0]))
-print("Numero de conexiones:", len(conexiones))
+# Seleccionar una conexion del fichero.
+pin_origen = "A5"
+pin_destino = "Bd"
 
-print("\nPrimera fila:")
-print(mapa[0])
+# Obtener las coordenadas de ambos pines.
+origen = buscar_pin(mapa, pin_origen)
+destino = buscar_pin(mapa, pin_destino)
 
-print("\nConexiones:")
-for conexion in conexiones:
-    print(conexion)
+# Ejecutar A*.
+camino = find_path(mapa, origen, destino)
 
-print("A1:", buscar_pin(mapa, "A1"))
-print("B1:", buscar_pin(mapa, "B1"))
-print("C1:", buscar_pin(mapa, "C1"))
-print("D1:", buscar_pin(mapa, "D1"))
-print("S1:", buscar_pin(mapa, "S1"))
-print("Z9:", buscar_pin(mapa, "Z9"))
+# Mostrar los resultados.
+print("Soporte:", len(mapa), "x", len(mapa[0]))
+print("Conexiones definidas:", len(conexiones))
+print("Conexion:", pin_origen, "-", pin_destino)
 
-print("\nTABLERO COMPLETO:")
-mostrar_matriz(mapa)
+if camino:
+    print("Camino encontrado:", camino)
+    print("Longitud:", len(camino) - 1)
+else:
+    print("No existe un camino valido.")
