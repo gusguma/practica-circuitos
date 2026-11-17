@@ -1,7 +1,7 @@
+
 def get_codigo_tablero(caracteres):
     """
-    Convierte el codigo de una casilla del fichero
-    a su representacion interna.
+    Convierte el código de una casilla del fichero a su representación interna.
     """
     if caracteres == "00":
         return "0"
@@ -13,7 +13,7 @@ def get_codigo_tablero(caracteres):
 
 def cargar_tablero(nombre_fichero):
     """
-    Lee el fichero de definicion del circuito.
+    Lee el fichero de definición del circuito.
     Devuelve:
         mapa: lista de listas con las casillas del tablero.
         conexiones: lista de tuplas con los pines a conectar.
@@ -53,7 +53,7 @@ def buscar_pin(mapa, pin):
     for fila in range(len(mapa)):
         for columna in range(len(mapa[fila])):
             if mapa[fila][columna] == pin:
-                return (fila, columna)
+                return fila, columna
     return None
 
 

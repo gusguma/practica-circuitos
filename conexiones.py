@@ -3,8 +3,7 @@ from astar import find_path
 
 def conectar_pines(mapa, conexiones):
     """
-    Calcula las rutas entre los pines mediante A*.
-    Cada conexion se identifica mediante un número
+    Calcula las rutas entre los pines mediante A Star. Cada conexión se identifica mediante un número
     de dos caracteres en el tablero resultante.
     Devuelve:
         mapa_trazado: tablero con las rutas.
@@ -13,7 +12,6 @@ def conectar_pines(mapa, conexiones):
     """
     # Copiar el tablero sin modificar el original.
     mapa_trazado = []
-
     for fila in mapa:
         mapa_trazado.append(fila[:])
     rutas = []

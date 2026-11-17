@@ -1,9 +1,10 @@
 # Práctica 1 - Conexión de circuitos
 
-**Autor** Gustavo Gutierrez  
+**Autor:** Gustavo Gutierrez  
 **Asignatura:** Sistemas Inteligentes   
 **Curso:** 2026-2027  
 **Opción 1:** Conexión de circuitos
+**Repositorio** [Practica Circuitos Github](https://github.com/gusguma/practica-circuitos)
 
 ## Descripción
 
@@ -13,14 +14,19 @@ El programa debe encontrar caminos entre parejas de pines que previamente han si
 
 ## Diseño del tablero
 
-- Placa de **30 × 30** casillas.
-- **4 circuitos** (A, B, C y D) de **6 × 6** casillas.
-- **16 pines por circuito**, cuatro en cada lado: 64 pines en total.
-- **2 terminales de alimentación:** S1 y S2.
-- **33 conexiones** definidas previamente en el fichero de entrada.
-- **Zona térmica de 3 × 4** casillas, situada en las filas 13-15 y columnas 13-16.
+- Placa de 30 × 30 casillas.
+- 4 circuitos (A, B, C y D) de 6 × 6 casillas.
+- 16 pines por circuito, cuatro en cada lado: 64 pines en total.
+- 2 terminales de alimentación: S1 y S2.
+- 33 conexiones definidas previamente en el fichero de entrada.
+- Zona térmica de 3 × 4 casillas, situada en las filas 13-15 y columnas 13-16.
 
-La placa se representa mediante una matriz. En ella, `0` identifica una casilla libre, `X` una casilla bloqueada que no puede tener uso y los códigos como `A1` o `S1` identifican los diferentes terminales. Una vez calculadas las rutas, las pistas que ocuparan las conexiones aparecen numeradas de `01` a `33`.
+La placa se representa mediante una matriz. En ella, se identifican los siguientes elementos:
+
+- `0` identifica una casilla libre  
+- `X` una casilla bloqueada que no puede tener uso
+- Los códigos como `A1` o `S1` identifican los diferentes terminales. 
+- Una vez calculadas las rutas, las pistas que ocuparan las conexiones aparecen numeradas de `01` a `33`.
 
 ## Archivos principales
 
