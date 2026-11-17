@@ -1,25 +1,19 @@
 from tablero import cargar_tablero, mostrar_matriz
 from conexiones import conectar_pines
 
-# Cargar la definicion del soporte.
-mapa, conexiones = cargar_tablero(
-    "datos/DefinicionConexionesCircuito.txt"
-)
+# Cargar la definición del soporte.
+mapa, conexiones = cargar_tablero("datos/DefinicionConexionesCircuito.txt")
 
 # Calcular las rutas.
-mapa_trazado, rutas, pendientes = conectar_pines(
-    mapa, conexiones
-)
+mapa_trazado, rutas, pendientes = conectar_pines(mapa, conexiones)
 
 longitud_total = 0
 
 print("RESULTADO DE LAS CONEXIONES")
 
 for origen, destino, camino in rutas:
-
     longitud = len(camino) - 1
     longitud_total += longitud
-
     print(origen, "-", destino, ":", longitud, "movimientos")
 
 print("\nConexiones realizadas:", len(rutas))

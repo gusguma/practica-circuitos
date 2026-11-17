@@ -2,7 +2,7 @@ import heapq
 
 def crear_nodo(posicion, g=float('inf'), h=0.0, padre=None):
     """
-    Crea un nodo para el algoritmo A*.
+    Crea un nodo para el algoritmo A Star.
 
     posicion: coordenadas (fila, columna).
     g: coste acumulado desde el origen.
@@ -33,7 +33,7 @@ def reconstruir_camino(nodo_meta):
     Reconstruye el camino desde el nodo inicial
     hasta el nodo meta.
     Recibe:
-        nodo_meta: ultimo nodo encontrado por A*.
+        nodo_meta: ultimo nodo encontrado por A Star.
     Devuelve:
         Lista de posiciones (fila, columna).
     """
@@ -49,34 +49,30 @@ def reconstruir_camino(nodo_meta):
 
 def es_valida(mapa, posicion, origen, destino):
     """
-    Comprueba si una posicion es valida para una conexion.
+    Comprueba si una posición es válida para una conexión.
     Permite pasar por casillas libres y por los
-    pines de origen y destino de la conexion actual.
+    pines de origen y destino de la conexión actual.
     """
     fila, columna = posicion
     alto = len(mapa)
     ancho = len(mapa[0])
 
-    # Comprobar los limites del tablero.
+    # Comprobar los límites del tablero.
     if fila < 0 or fila >= alto:
         return False
     if columna < 0 or columna >= ancho:
         return False
-    # Los pines de origen y destino estan permitidos.
+    # Los pines de origen y destino están permitidos.
     if posicion == origen or posicion == destino:
         return True
-    # El resto del recorrido solo puede utilizar
-    # casillas libres.
+    # El resto del recorrido solo puede utilizar casillas libres.
     return mapa[fila][columna] == "0"
 
 
 def sucesores(mapa, posicion, origen, destino):
     """
-    Obtiene las posiciones a las que podemos movernos
-    desde una casilla del tablero.
-
-    Solo permite movimientos horizontales y verticales,
-    siempre que la posicion sea valida.
+    Obtiene las posiciones a las que podemos movernos desde una casilla del tablero.
+    Solo permite movimientos horizontales y verticales, siempre que la posición sea válida.
     """
     fila, columna = posicion
     posibles_movimientos = [
@@ -97,10 +93,8 @@ def sucesores(mapa, posicion, origen, destino):
 
 def find_path(mapa, origen, destino):
     """
-    Busca el camino mas corto entre dos posiciones
-    utilizando el algoritmo A*.
-    Devuelve una lista de posiciones si encuentra
-    un camino, o una lista vacia si no existe.
+    Busca el camino más corto entre dos posiciones utilizando el algoritmo A Star.
+    Devuelve una lista de posiciones si encuentra un camino, o una lista vacía si no existe.
     """
     if origen is None or destino is None:
         return []
